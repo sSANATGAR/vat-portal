@@ -25,8 +25,8 @@ class Cards(models.Model):
         return self.rfid
 
 class Cars(models.Model):
-    license_plate_max = models.CharField(max_length=20)
-    mac_address = models.CharField(max_length=12)
+    mac_address = models.CharField(max_length=17, db_index=True)
+    license_plate_max = models.CharField(max_length=20)    
     firmware_version = models.ForeignKey(Firmware, on_delete=models.DO_NOTHING)
     rfids = models.ForeignKey(Cards, related_name='car', on_delete=models.CASCADE, null=True , blank=True)
 

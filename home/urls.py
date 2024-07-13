@@ -10,5 +10,5 @@ router.register(r'firmware', views.FirmwareViewSet)
 
 urlpatterns = [
     path('rfids/', views.CardsCreateList.as_view(), name='api'),
-    path('check-firmware/', views.CheckFirmware.as_view(), name='car_manage')
+    path('firmware/', views.CheckFirmware.as_view(), name='car_manage')
 ]

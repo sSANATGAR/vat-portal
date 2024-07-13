@@ -3,7 +3,7 @@ from .models import Cards, Firmware, Cars
 from .forms import FirmwareAdminForm
 
 class CarsAdmin(admin.ModelAdmin):
-    list_display = ('license_plate_max', 'mac_address', 'firmware_version', 'rfids')
+    list_display = ('mac_address', 'license_plate_max', 'firmware_version', 'rfids')
 
 admin.site.register(Cars, CarsAdmin)
 

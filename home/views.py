@@ -1,3 +1,4 @@
+from django.http import FileResponse
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView, RetrieveAPIView
@@ -30,54 +31,30 @@ class CardsCreateList(CreateModelMixin, ListAPIView):
 
 
 class CheckFirmware(APIView):
-    def post(self, request, *args, **kwargs):
-        mac_address = request.data.get('mac_address')
+    def post(self, request, *args, **kwargs):               
         firmware_version = request.data.get('firmware_version')
+        firmware = Firmware.objects.filter(version=firmware_version).first()
+        # Wenn der Firmware version nicht in Database ist, dann soll eine Fehlermeldung kommen
+        # Immer wenn eine neue Firmware Version für Arduino gebuildet wird muss diese gleich in dar Datenbank eingetragen werden!!!
+        if not firmware:
+            return Response({'message': 'Firmware not found'}, status=status.HTTP_404_NOT_FOUND)
+        mac_address = request.data.get('mac_address')
+        car = Cars.objects.filter(mac_address=mac_address).first()
+        # Wenn das Auto nicht in der Datenbank ist, dann soll diese in Datenbank mit der Aktuelle Firmware Version eingetragen werden
+        if not car:
+            car = Cars.objects.create(mac_address=mac_address, firmware_version=firmware, license_plate_max='UNBEKANNT')
+            return Response({'message': 'Car added to database'}, status=status.HTTP_201_CREATED)
 
-        try:
-            car = Cars.objects.get(mac_address=mac_address)
-        except Cars.DoesNotExist:
-            try:
-                firmware = Firmware.objects.get(version=firmware_version)
-            except Firmware.DoesNotExist:
-                return Response({'error': 'firmware version does not exist'}, status=status.HTTP_404_NOT_FOUND)
-            car_lisence = request.data.get('license_plate')
-            new_car = Cars.objects.craete(
-                license_plate_max = car_lisence,
-                mac_address = mac_address,
-                firmware_version = firmware
-            )
-            new_car.save()
-            return Response({'message': 'Car added successfully'}, status=status.HTTP_201_CREATED)
+        # Wenn das Auto gleiche Version hat, wie in der Datenbank pflegt dann soll nichts gemacht werden
+        if car.firmware_version_id == firmware.id:
+            return Response({'message': 'No updatet needed'}, status=status.HTTP_200_OK) 
+        # Die Binary Daten von frimware_file als Response zurückgeben
+        new_firmware = Firmware.objects.filter(id=car.firmware_version_id).first()
+        # Return the binary data as a file response
+        response = FileResponse(new_firmware.firmware_data, content_type='application/octet-stream', status=210)
+        response['Content-Disposition'] = 'attachment; filename="firmware.bin"'
+        return response
         
-        if car.firmware_version.verison != firmware_version:
-            firmware_data = car.firmware_version.firmware_data
-            return Response({'firmware_data': firmware_data}, status=status.HTTP_200_OK)
-        
-        return Response({'message': 'No update needed'}, status=status.HTTP_200_OK)
-    
-    def patch(self, request,*args, **kwargs):
-        try:
-            car = Cars.objects.get(mac_address=request.data.get('mac_address'))
-        except Cars.DoesNotExist:
-            return Response({'error': 'Car not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        ser_data = CardSerializer(car, data=request.data, partial=True)
-        if ser_data.is_valid():
-            firmware_version = request.data.get('firmware_version')
-            try:
-                new_firmware = Firmware.objects.get(version=firmware_version)
-            except Firmware.DoesNotExist:
-                return Response({'error': 'firmware version doesn`t exist'})
-            
-            if car.firmware_version != new_firmware:
-                car.firmware_version = new_firmware
-                car.save()
-                return Response({'message': 'firmware updated successfully'}, status=status.HTTP_200_OK)
-            else:
-                return Response({'message': 'firmware is already up to date'}, status=status.HTTP_200_OK)
-        return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class FirmwareViewSet(viewsets.ModelViewSet):
     queryset = Firmware.objects.all()
